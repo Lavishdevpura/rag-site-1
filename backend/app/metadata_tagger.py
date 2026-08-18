@@ -47,15 +47,19 @@ ENABLE_METADATA_FILTERING = os.getenv("ENABLE_METADATA_FILTERING", "false").stri
 # Longer / more specific patterns are listed first so they get hit before short
 # ones (matters for the hit-count approach).
 
-_INSURER_PATTERNS: dict[str, list[str]] = {
-    "RAK":     ["rak insurance", "rak national", "rak travel", "rak"],
-    "AIG":     ["american international group", "aig"],
-    "GIG":     ["gulf insurance group", "gulf insurance", "gig"],
-    "LIVA":    ["liva insurance", "liva"],
-    "AXA":     ["axa insurance", "axa"],
-    "ZURICH":  ["zurich insurance", "zurich"],
-    "ALLIANZ": ["allianz insurance", "allianz"],
-}
+# Left empty for NexInsure (India/IRDAI, 2026-08-18) — the previous entries
+# were Gulf-market insurers (RAK, AIG, GIG, LIVA, AXA, Zurich, Allianz) from
+# Layla's original domain, irrelevant here and actively harmful once left
+# in: _count_hits() below does a bare substring count with no word
+# boundaries, so short bare-word fallback entries like "aig" or "rak" match
+# inside ordinary English words ("again" contains "aig") and Indian
+# government/institutional text confidently mislabeled itself with a
+# random foreign insurer. NexInsure hasn't specified which carriers it
+# actually places business with yet (an open business choice per the
+# source doc, not something to guess) — populate with real Indian carrier
+# names once known, and keep multi-word entries first / avoid bare
+# 3-4 letter fallbacks to avoid repeating this same substring-collision bug.
+_INSURER_PATTERNS: dict[str, list[str]] = {}
 
 _POLICY_PATTERNS: dict[str, list[str]] = {
     # Patterns are ordered most-specific → least-specific within each type.
