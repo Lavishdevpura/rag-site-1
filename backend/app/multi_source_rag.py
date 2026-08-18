@@ -30,20 +30,38 @@ logger = logging.getLogger(__name__)
 _LLM_BACKEND_ERRORS = (_APIConnectionError, _APITimeoutError, _APIStatusError)
 
 # ── Typo-tolerant domain vocabulary ──────────────────────────────────────────
-# Forked from Layla 2026-08-17: this used to be a hand-curated insurance-
-# domain term list for _correct_typos() to fuzzy-match against before
-# vector retrieval. Left empty until the real domain for this deployment
-# is known — an empty list makes _correct_typos() a no-op (nothing to
-# correct against) rather than silently correcting toward insurance
-# vocabulary that has nothing to do with this KB. Populate with this
-# deployment's own domain terms once known.
-_INSURANCE_VOCAB = []
+# Domain confirmed 2026-08-18 (NexInsure — India/IRDAI B2B commercial
+# lines: property & liability, group health, marine/cargo/transit,
+# motor/fleet). Populated from that scope. This list is also read by the
+# hollow-answer detector's _has_domain_word check further down this file
+# — while it was empty, that check always evaluated False, silently
+# disabling the safety guard meant to stop short-but-genuine answers from
+# being misclassified as hollow filler (confirmed live: a correct 11-word
+# grounded answer about marine cargo got redirected to a refusal purely
+# because this list had nothing for it to match against).
+_INSURANCE_VOCAB = [
+    "policy", "premium", "insured", "insurer", "insurance", "claim", "claims",
+    "coverage", "cover", "exclusion", "exclusions", "endorsement",
+    "underwriting", "underwriter", "proposal", "wording", "deductible",
+    "excess", "liability", "indemnity", "reinsurance", "coinsurance",
+    "uninsured", "underinsured", "assured", "peril", "perils", "hazard",
+    "subrogation", "warranty", "breach", "quote", "quoting", "rating",
+    "tariff", "sublimit", "sublimits", "arbitration", "ombudsman",
+    "irdai", "regulatory", "regulation", "circular", "gazette", "notification",
+    "motor", "vehicle", "fleet", "commercial", "goods",
+    "marine", "cargo", "transit", "shipment", "consignment", "hull",
+    "fire", "property", "sme",
+    "health", "hospitalisation", "hospitalization", "mediclaim", "group",
+    "public", "product", "professional", "director", "officer", "employer",
+    "cyber", "breach",
+]
 
 # Ordinary English words that fuzzy-match an _INSURANCE_VOCAB entry above
-# the 85 threshold but are never actually a typo of it. Empty along with
-# _INSURANCE_VOCAB above (see its own comment) — this guard is only
-# meaningful once there's a real vocab list to correct against; populate
-# alongside it once this deployment's domain terms are known.
+# the 85 threshold but are never actually a typo of it (see _correct_typos'
+# own docstring for the "company"->"copay"/"order"->"rider" precedent this
+# followed). Populated conservatively — start empty and add entries here
+# if a real collision turns up in production, the same way the two
+# existing precedents were found.
 _TYPO_CORRECTION_PROTECTED_WORDS = frozenset()
 
 
