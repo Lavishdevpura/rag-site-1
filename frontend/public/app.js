@@ -373,7 +373,7 @@ function buildEmptyState() {
     <div class="empty-state__icon" aria-hidden="true">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 6.5V11C3 16.2 6.8 20.9 12 22C17.2 20.9 21 16.2 21 11V6.5L12 2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 12.2L10.8 14.5L15.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
-    <h1>Hi, I'm your Reinsurance Assistant 👋</h1>
+    <h1>Hi, I'm your NexInsure Assistant 👋</h1>
     <p>Ask me about reinsurance treaties, regulation, or market structure — I'm here to help.</p>
     <div class="example-grid"></div>
   `;
