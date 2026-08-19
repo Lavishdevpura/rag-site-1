@@ -47,68 +47,40 @@ ENABLE_METADATA_FILTERING = os.getenv("ENABLE_METADATA_FILTERING", "false").stri
 # Longer / more specific patterns are listed first so they get hit before short
 # ones (matters for the hit-count approach).
 
-# Left empty for NexInsure (India/IRDAI, 2026-08-18) — the previous entries
-# were Gulf-market insurers (RAK, AIG, GIG, LIVA, AXA, Zurich, Allianz) from
-# Layla's original domain, irrelevant here and actively harmful once left
-# in: _count_hits() below does a bare substring count with no word
-# boundaries, so short bare-word fallback entries like "aig" or "rak" match
-# inside ordinary English words ("again" contains "aig") and Indian
-# government/institutional text confidently mislabeled itself with a
-# random foreign insurer. NexInsure hasn't specified which carriers it
-# actually places business with yet (an open business choice per the
-# source doc, not something to guess) — populate with real Indian carrier
-# names once known, and keep multi-word entries first / avoid bare
-# 3-4 letter fallbacks to avoid repeating this same substring-collision bug.
+# Left empty for the reinsurance domain (2026-08-19) — no specific ceding
+# companies or reinsurers have been named as this KB's actual subject yet
+# (the current corpus is general educational/regulatory material — Munich
+# Re, Lloyd's, IRDAI — not documents ABOUT any one named carrier). Populate
+# once "sir" provides real internal treaty/carrier documents, and when you
+# do: _count_hits() below does a bare substring count with no word
+# boundaries, so short bare-word fallback entries (e.g. a 3-4 letter ticker
+# or abbreviation) can match inside ordinary English words — keep
+# multi-word entries first / avoid bare short fallbacks to avoid that class
+# of bug (confirmed live on this same file for a previous domain: "again"
+# contains "aig", a real Gulf-market insurer code, and mislabeled unrelated
+# text).
 _INSURER_PATTERNS: dict[str, list[str]] = {}
 
+# Domain confirmed 2026-08-19: reinsurance (see _POLICY_TYPE_HINTS' own
+# comment for the full scope note and why this is a deliberately small
+# 3-way split, not the previous 12 retail insurance lines). Kept in sync
+# with _POLICY_TYPE_HINTS' keys — this dict is the document-LEVEL scorer
+# tag_document() uses, that one is the section/chunk-level scorer.
 _POLICY_PATTERNS: dict[str, list[str]] = {
-    # Patterns are ordered most-specific → least-specific within each type.
-    # Short bare words (life, car, home) are intentionally excluded — they
-    # appear in generic insurance text and cause false-positive tagging.
-    "travel":            ["travel insurance", "trip cancellation", "flight delay",
-                          "baggage loss", "baggage delay", "baggage",
-                          "hajj insurance", "umrah insurance", "outbound travel"],
-    "health":            ["health insurance", "medical insurance", "hospitalisation",
-                          "hospitalization", "medical expense", "clinical",
-                          "group health", "mediclaim", "critical illness",
-                          "cashless treatment", "pre-existing disease"],
-    "life":              ["life insurance", "term life", "whole life",
-                          "accidental death benefit", "death benefit",
-                          "life assurance", "sum assured", "endowment plan",
-                          "ulip", "unit linked", "money back plan",
-                          "annuity", "pension plan", "lic policy"],
-    "motor":             ["motor insurance", "vehicle insurance", "car insurance",
-                          "auto insurance", "motor vehicle", "comprehensive motor",
-                          "third party motor", "own damage", "ncb", "no claim bonus",
-                          "road accident", "traffic accident"],
-    "home":              ["home insurance", "property insurance", "building insurance",
-                          "contents insurance", "household insurance",
-                          "houseowners policy", "householders policy"],
-    "personal_accident": ["personal accident", "pa insurance", "accidental injury",
-                          "accidental disability", "permanent disability",
-                          "temporary disability", "accidental dismemberment",
-                          "group personal accident"],
-    "fire":              ["fire insurance", "fire policy", "fire damage",
-                          "standard fire", "special perils", "fire and allied perils",
-                          "fire brigade", "consequential loss"],
-    "marine":            ["marine insurance", "marine cargo", "marine hull",
-                          "cargo insurance", "shipping insurance",
-                          "inland transit", "import cargo", "export cargo",
-                          "bill of lading", "marine policy", "transit insurance"],
-    "liability":         ["liability insurance", "public liability", "product liability",
-                          "professional indemnity", "errors and omissions",
-                          "directors and officers", "d&o insurance",
-                          "employer liability", "third party liability"],
-    "commercial":        ["commercial insurance", "business insurance",
-                          "trade insurance", "commercial property",
-                          "business interruption", "shop insurance",
-                          "office insurance", "industrial all risk"],
-    "crop":              ["crop insurance", "agriculture insurance",
-                          "pradhan mantri fasal bima", "pmfby",
-                          "weather based crop", "kharif", "rabi crop"],
-    "cyber":             ["cyber insurance", "cyber risk", "data breach",
-                          "cyber attack", "ransomware", "cyber liability",
-                          "information security", "data protection insurance"],
+    "fundamentals":       ["treaty reinsurance", "facultative reinsurance",
+                           "proportional reinsurance", "non-proportional reinsurance",
+                           "quota share", "surplus treaty", "excess of loss",
+                           "catastrophe excess of loss", "cat xl",
+                           "stop loss reinsurance", "reinsurance layer",
+                           "cession", "ceding commission"],
+    "regulatory":         ["irdai", "reinsurance regulations", "master circular",
+                           "gazette notification", "regulatory sandbox",
+                           "irdai circular", "obligatory cession",
+                           "consolidated regulations"],
+    "market_underwriting": ["lloyd's market", "syndicate", "ceding company",
+                           "reinsurer", "underwriting authority", "risk appetite",
+                           "underwriting requirements", "risk assessment",
+                           "market oversight"],
 }
 
 # ── Document-type classifier patterns ─────────────────────────────────────────
@@ -705,287 +677,80 @@ def classify_chunk_intent_batch(
 #        passed to the LLM as few-shot examples so the model can generalise to
 #        synonyms and paraphrases it would not have matched by keyword alone.
 
+# Domain confirmed 2026-08-19: reinsurance quote-assistance for agents/
+# underwriters (see prompt_template.py's PERSONA_NAME comment for the full
+# scope note). This deliberately small 3-way split matches the actual
+# corpus being ingested right now (Munich Re's non-proportional-reinsurance
+# basics PDF, IRDAI regulatory pages, Lloyd's market/underwriting pages) —
+# NOT the full 8-category taxonomy the research doc sketches for document
+# ORGANIZATION (Fundamentals/Product/Underwriting/Treaty/Pricing/Authority/
+# Regulatory/Historical-Quotes). That taxonomy assumes internal documents
+# (treaty wordings, rate tables, authority matrices, historical quotes)
+# that don't exist in this KB yet — building a 8-12-way query-time filter
+# vocabulary against a handful of general-overview public documents would
+# fragment a thin corpus into buckets with too little content each to
+# filter usefully (see project memory: KB Sparsity Blocks Contamination
+# Coverage — an open-vocab type with no real bucket to mine caused a false
+# refusal on a different fork). Expand this dict when "sir" provides real
+# internal per-line documents (property/marine/engineering/motor treaty
+# wordings, rate tables, authority matrices) — at that point a line-of-
+# business split like the other forks' _POLICY_TYPE_HINTS makes sense.
 _POLICY_TYPE_HINTS: dict[str, dict] = {
-    "motor": {
+    "fundamentals": {
         "desc": (
-            "Car, bike, vehicle, auto insurance. Covers own-damage, third-party "
-            "liability, road accidents, traffic incidents, driving-related topics."
+            "Reinsurance mechanics and structures: treaty vs facultative, "
+            "proportional vs non-proportional, quota share, surplus, excess "
+            "of loss (XOL), catastrophe XL, stop loss, retention, layers, "
+            "cession, ceding commission — how reinsurance itself works."
         ),
         "keywords": [
-            "car insurance", "motor insurance", "vehicle insurance", "auto insurance",
-            "motor vehicle", "comprehensive motor", "third party liability",
-            "own damage", "road accident", "traffic", "driving", "bike insurance",
-            "two-wheeler", "automobile", "collision", "fender bender",
+            "treaty reinsurance", "facultative reinsurance", "proportional reinsurance",
+            "non-proportional reinsurance", "quota share", "surplus treaty",
+            "excess of loss", "XOL", "catastrophe excess of loss", "cat xl",
+            "stop loss reinsurance", "retention", "reinsurance layer", "cession",
+            "ceding commission", "reinsurance premium",
         ],
         "regex": [
-            r"\bcar insurance\b", r"\bmotor insurance\b", r"\bvehicle insurance\b",
-            r"\bauto insurance\b", r"\bmotor vehicle\b", r"\bcomprehensive motor\b",
-            # Narrowed from bare \bthird.?party\b (2026-07-16) — "third party"
-            # alone is a general legal/insurance concept spanning liability,
-            # professional indemnity, and general insurance principles, not
-            # exclusively motor. Confirmed live: the heading "THIRD PARTY
-            # ADMINISTRATORS-HEALTH" classified as motor purely because
-            # "third party" hit here with zero competing signal, even though
-            # "HEALTH" is literally in the same heading (health's list has
-            # no standalone fallback for it — see below). Requiring an
-            # immediate qualifier keeps the genuinely motor-specific
-            # phrasings ("third party liability", "third-party insurance")
-            # while dropping the bare, type-agnostic mention.
-            r"\bthird.?party\s+(?:liability|insurance|cover(?:age)?)\b",
-            r"\bown damage\b", r"\bdriving\b",
-            r"\bbike insurance\b", r"\btwo.?wheeler\b", r"\bautomobile\b",
+            r"\btreaty reinsurance\b", r"\bfacultative reinsurance\b",
+            r"\bproportional reinsurance\b", r"\bnon.?proportional reinsurance\b",
+            r"\bquota share\b", r"\bsurplus treaty\b", r"\bexcess of loss\b",
+            r"\bXOL\b", r"\bcat(?:astrophe)?\s+(?:excess of loss|xl)\b",
+            r"\bstop loss reinsurance\b", r"\breinsurance layer\b",
+            r"\bcession(?:s)?\b", r"\bceding commission\b",
         ],
     },
-    "health": {
+    "regulatory": {
         "desc": (
-            "Medical, hospital, health coverage, clinical treatment. Covers "
-            "hospitalisation, OPD, IPD, cashless treatment, doctor visits, "
-            "medicine costs, surgery, emergency medical care."
+            "IRDAI reinsurance regulation and compliance: regulations, "
+            "master circulars, gazette notifications, obligatory cessions, "
+            "permissible reinsurance arrangements, documentation requirements."
         ),
         "keywords": [
-            "health insurance", "medical insurance", "hospitalization", "hospital",
-            "medical expense", "clinical", "OPD", "IPD", "cashless treatment",
-            "doctor", "surgery", "medicine", "treatment", "illness", "disease",
-            "pre-existing", "maternity", "dental", "vision", "pharmacy",
+            "IRDAI", "IRDAI regulation", "reinsurance regulations", "master circular",
+            "gazette notification", "regulatory sandbox", "IRDAI circular",
+            "obligatory cession", "consolidated regulations",
         ],
         "regex": [
-            r"\bhealth insurance\b", r"\bmedical insurance\b", r"\bhospitali[sz]ation\b",
-            r"\bhospital\b", r"\bmedical expense\b", r"\bclinical\b",
-            r"\bdoctor\b", r"\bsurgery\b", r"\billness\b", r"\btreatment\b",
-            r"\bpre.?existing\b", r"\bmaternity\b",
-            # Bare \bhealth\b / \bmedical\b were tried and reverted the same
-            # day (2026-07-16): fixed a heading-only edge case ("THIRD PARTY
-            # ADMINISTRATORS-HEALTH") but caused a worse regression in body
-            # text — a personal-accident section explicitly contrasting
-            # itself against health cover ("Unlike a health plan, this kind
-            # of cover doesn't reimburse hospital bills directly") scored
-            # health=3 (health + hospital + medical, all present specifically
-            # BECAUSE the text was distinguishing itself from health
-            # insurance) and confidently misclassified. The original heading
-            # case doesn't actually need this — its real body text already
-            # contains "health insurance" as a full phrase (confirmed
-            # directly against the live KB chunk), which the existing
-            # \bhealth insurance\b entry above already catches once the
-            # heading check falls through to the body.
+            r"\bIRDAI\b", r"\breinsurance regulations?\b", r"\bmaster circular\b",
+            r"\bgazette notifi(?:ed|cation)\b", r"\bregulatory sandbox\b",
+            r"\bIRDAI circular\b", r"\bobligatory cession\b",
         ],
     },
-    "life": {
+    "market_underwriting": {
         "desc": (
-            "Life cover, term life, whole life, death benefit, sum assured. "
-            "Covers death, terminal illness, critical illness riders, annuity, "
-            "pension, retirement savings with life component."
+            "Reinsurance market structure and underwriting practice: how the "
+            "Lloyd's market works, brokers, syndicates, ceding companies, "
+            "underwriting risk assessment, risk appetite, and authority."
         ),
         "keywords": [
-            "life insurance", "term insurance", "term life", "whole life", "death benefit",
-            "sum assured", "life assurance", "accidental death", "critical illness",
-            "terminal illness", "annuity", "pension", "retirement plan",
-            "endowment", "unit-linked", "ULIP", "nominee", "beneficiary",
+            "Lloyd's market", "syndicate", "ceding company", "reinsurer",
+            "underwriting authority", "risk appetite", "underwriting requirements",
+            "risk assessment", "market oversight",
         ],
         "regex": [
-            r"\blife insurance\b", r"\bterm insurance\b", r"\bterm life\b", r"\bwhole life\b",
-            r"\bdeath benefit\b", r"\bsum assured\b", r"\blife assurance\b",
-            r"\bcritical illness\b", r"\bannuity\b", r"\bpension\b",
-            r"\bendowment\b", r"\bulip\b",
-        ],
-    },
-    "travel": {
-        "desc": (
-            "Travel, trip, flight delay, baggage loss/delay, trip cancellation, "
-            "Hajj/Umrah insurance, outbound travel, passport loss, emergency "
-            "overseas medical, travel accident."
-        ),
-        "keywords": [
-            "travel insurance", "trip cancellation", "flight delay", "baggage",
-            "baggage loss", "baggage delay", "hajj insurance", "outbound",
-            "passport loss", "overseas medical", "travel accident",
-            "holiday insurance", "vacation", "abroad", "international travel",
-        ],
-        "regex": [
-            r"\btravel insurance\b", r"\btrip cancellation\b", r"\bflight delay\b",
-            r"\bbaggage\b", r"\bhajj insurance\b", r"\bumrah insurance\b",
-            r"\bpassport loss\b", r"\boverseas\b", r"\bholiday insurance\b",
-            r"\babroad\b",
-        ],
-    },
-    "home": {
-        "desc": (
-            "Home, property, building, contents, household insurance for a "
-            "RESIDENTIAL dwelling someone lives in — fire, flood, theft, "
-            "structural damage, personal belongings inside the home. NOT for "
-            "harm the policyholder CAUSES to someone else's property or a "
-            "third party (a neighbour's property damaged by a leak from the "
-            "insured's factory, a passerby injured outside the insured's "
-            "shop) — that is liability insurance, even though the word "
-            "'property' appears in both. NOT for a BUSINESS's own building, "
-            "warehouse, shop, or office, even though the underlying risk "
-            "(fire, flood, theft, a burst pipe) sounds identical — a "
-            "business's own premises is commercial insurance, not home, "
-            "regardless of how similar the covered perils are worded."
-        ),
-        "keywords": [
-            "home insurance", "property insurance", "building insurance",
-            "contents insurance", "household insurance",
-            "flood damage", "theft at home", "structural damage", "landlord",
-            "houseowners", "householders",
-        ],
-        "regex": [
-            r"\bhome insurance\b", r"\bproperty insurance\b", r"\bbuilding insurance\b",
-            r"\bcontents insurance\b", r"\bhousehold insurance\b",
-            r"\bflood\b", r"\btheft\b", r"\blandlord\b",
-            r"\bhouseowners\b", r"\bhouseholders\b",
-        ],
-    },
-    "personal_accident": {
-        "desc": (
-            "Personal accident cover. Covers accidental injury, death, permanent or "
-            "temporary disability, dismemberment. Distinct from life insurance. "
-            "Users commonly say just \"personal insurance\" for this type."
-        ),
-        "keywords": [
-            "personal accident", "pa insurance", "accidental injury",
-            "accidental disability", "permanent disability", "temporary disability",
-            "accidental dismemberment", "group personal accident",
-            "accidental death", "ptd", "ttd", "personal insurance",
-        ],
-        "regex": [
-            r"\bpersonal accident\b", r"\bpa insurance\b", r"\baccidental injur\b",
-            r"\baccidental disabilit\b", r"\bpermanent disabilit\b",
-            r"\btemporary disabilit\b", r"\bdismemberment\b",
-            # Confirmed live: "What is personal insurance?" scored zero
-            # regex hits for every type (the phrase is one word short of
-            # "personal accident"), fell through to the LLM fallback, which
-            # apparently didn't reliably map it here either — the correctly
-            # generated answer about personal accident insurance then got
-            # discarded as "cross-topic contamination" relative to whatever
-            # type the LLM guessed instead. "Personal insurance" is the
-            # natural everyday shorthand for this category (the KB's own
-            # "main products of general insurance" list names it "Personal
-            # accident insurance"), so it's added directly here rather than
-            # left to per-call LLM inference.
-            r"\bpersonal insurance\b",
-        ],
-    },
-    "fire": {
-        "desc": (
-            "Fire insurance and allied perils. Covers fire damage, lightning, explosion, "
-            "flood (in industrial context), riots, strikes, consequential loss."
-        ),
-        "keywords": [
-            "fire insurance", "fire policy", "fire damage", "standard fire",
-            "special perils", "fire and allied perils", "consequential loss",
-            "fire brigade", "fire loss", "burning",
-        ],
-        "regex": [
-            r"\bfire insurance\b", r"\bfire policy\b", r"\bfire damage\b",
-            r"\bstandard fire\b", r"\bspecial perils\b", r"\bconsequential loss\b",
-        ],
-    },
-    "marine": {
-        "desc": (
-            "Marine cargo and hull insurance. Covers goods in transit, shipping, "
-            "import/export cargo, inland transit, vessel damage."
-        ),
-        "keywords": [
-            "marine insurance", "marine cargo", "marine hull", "cargo insurance",
-            "shipping insurance", "inland transit", "import cargo", "export cargo",
-            "bill of lading", "marine policy", "goods in transit",
-        ],
-        "regex": [
-            r"\bmarine insurance\b", r"\bmarine cargo\b", r"\bmarine hull\b",
-            r"\bcargo insurance\b", r"\bshipping insurance\b", r"\binland transit\b",
-            r"\bgoods in transit\b", r"\bbill of lading\b", r"\btransit insurance\b",
-            # Bare words added 2026-07-23 — every entry above is a full
-            # phrase, so a short natural query like "do you cover overseas
-            # shipping of goods?" scored ZERO for marine and lost outright
-            # to travel's bare \boverseas\b (confirmed live). None of
-            # these three collide with any other type's keyword/regex list
-            # (checked) — they're distinctively marine/shipping vocabulary,
-            # unlike home's \btheft\b/\bflood\b or health's \btreatment\b,
-            # which stay untouched here since narrowing THOSE has already
-            # caused a worse regression once (see bare \bhealth\b revert
-            # note above). This only ADDS a competing signal so marine can
-            # win or at least tie (-> safe "general") instead of losing by
-            # default to an unrelated type that happened to have a bare
-            # word and marine didn't.
-            r"\bcargo\b", r"\bvessel\b", r"\bshipping\b",
-        ],
-    },
-    "liability": {
-        "desc": (
-            "Liability insurance. Covers public liability, product liability, "
-            "professional indemnity, D&O, employer liability, errors and omissions."
-        ),
-        "keywords": [
-            "liability insurance", "public liability", "product liability",
-            "professional indemnity", "errors and omissions", "e&o",
-            "directors and officers", "d&o insurance", "employer liability",
-            "third party liability",
-        ],
-        "regex": [
-            r"\bliability insurance\b", r"\bpublic liability\b", r"\bproduct liability\b",
-            r"\bprofessional indemnity\b", r"\berrors and omissions\b",
-            r"\bd&o insurance\b", r"\bdirectors and officers\b",
-        ],
-    },
-    "commercial": {
-        "desc": (
-            "Commercial and business insurance. Covers business PROPERTY (the "
-            "building/premises itself), business interruption, shop/office "
-            "insurance, industrial all-risk. NOT a catch-all for anything a "
-            "business happens to buy — goods in transit is marine, a company "
-            "car is motor, a professional being sued for bad advice is "
-            "liability, even though all three are 'business' contexts. Only "
-            "use commercial when the cover is about the business's own "
-            "premises/property/operations continuity, with no more specific "
-            "type (marine, motor, liability, fire, etc.) actually fitting."
-        ),
-        "keywords": [
-            "commercial insurance", "business insurance", "trade insurance",
-            "commercial property", "business interruption", "shop insurance",
-            "office insurance", "industrial all risk", "sme insurance",
-        ],
-        "regex": [
-            r"\bcommercial insurance\b", r"\bbusiness insurance\b",
-            r"\bbusiness interruption\b", r"\bshop insurance\b",
-            r"\boffice insurance\b", r"\bindustrial all.?risk\b",
-        ],
-    },
-    "crop": {
-        "desc": (
-            "Crop and agricultural insurance. Covers kharif/rabi crops, "
-            "weather-based insurance, PMFBY, pradhan mantri fasal bima."
-        ),
-        "keywords": [
-            "crop insurance", "agriculture insurance", "pmfby",
-            "pradhan mantri fasal bima", "weather based crop",
-            "kharif", "rabi crop", "farm insurance",
-        ],
-        "regex": [
-            r"\bcrop insurance\b", r"\bagriculture insurance\b", r"\bpmfby\b",
-            r"\bfasal bima\b", r"\bkharif\b", r"\brabi crop\b",
-            # Bare \bcrops?\b added 2026-07-23 — every entry above requires
-            # a full phrase, so "is flood damage to my crops covered?"
-            # scored zero for crop and lost outright to home's bare
-            # \bflood\b (confirmed live). Doesn't collide with any other
-            # type's list. Only adds a competing signal — worst case is a
-            # tie against home that safely falls back to "general" instead
-            # of confidently answering "home" for a crop question.
-            r"\bcrops?\b",
-        ],
-    },
-    "cyber": {
-        "desc": (
-            "Cyber insurance. Covers data breach, cyber attacks, ransomware, "
-            "cyber liability, information security, digital risk."
-        ),
-        "keywords": [
-            "cyber insurance", "cyber risk", "data breach", "cyber attack",
-            "ransomware", "cyber liability", "information security",
-            "data protection insurance", "hacking", "phishing",
-        ],
-        "regex": [
-            r"\bcyber insurance\b", r"\bcyber risk\b", r"\bdata breach\b",
-            r"\bcyber attack\b", r"\bransomware\b", r"\bcyber liability\b",
+            r"\bLloyd'?s market\b", r"\bsyndicate(?:s)?\b", r"\bceding compan\w+\b",
+            r"\breinsurer(?:s)?\b", r"\bunderwriting authority\b", r"\brisk appetite\b",
+            r"\bunderwriting requirements?\b", r"\bmarket oversight\b",
         ],
     },
 }
@@ -1278,15 +1043,14 @@ _ENRICHMENT_FIELDS = ("language", "jurisdiction", "document_version", "effective
 # likely everyday synonyms before the membership check is a safety net for
 # that gap, not a replacement for the prompt's own instruction.
 _TYPE_SYNONYMS: dict[str, str] = {
-    "auto": "motor", "automobile": "motor", "car": "motor", "vehicle": "motor",
-    "car insurance": "motor", "vehicle insurance": "motor",
-    "property": "home", "household": "home", "house": "home", "homeowners": "home",
-    "medical": "health",
-    "accident": "personal_accident", "pa": "personal_accident",
-    "trip": "travel",
-    "agriculture": "crop", "agricultural": "crop", "farm": "crop",
-    "business": "commercial",
-    "shipping": "marine", "cargo": "marine",
+    "treaty": "fundamentals", "facultative": "fundamentals",
+    "proportional": "fundamentals", "non-proportional": "fundamentals",
+    "nonproportional": "fundamentals", "xol": "fundamentals",
+    "excess of loss": "fundamentals", "quota share": "fundamentals",
+    "regulation": "regulatory", "compliance": "regulatory",
+    "circular": "regulatory", "legal": "regulatory",
+    "underwriting": "market_underwriting", "market": "market_underwriting",
+    "broker": "market_underwriting", "lloyds": "market_underwriting",
 }
 
 

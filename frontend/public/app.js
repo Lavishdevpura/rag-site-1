@@ -348,13 +348,21 @@ function renderThread() {
   scrollToBottom(true);
 }
 
-// Forked from Layla 2026-08-17: placeholder examples until this
-// deployment's real domain/knowledge base is known — replace with
-// questions relevant to the actual documents this assistant serves.
+// Domain confirmed 2026-08-19: reinsurance quote-assistance for agents/
+// underwriters. Each of these was tested live against the real KB
+// (Munich Re's non-proportional-reinsurance basics, IRDAI reinsurance
+// department, Lloyd's market/underwriting pages) before being added here
+// — update this list if the knowledge base changes significantly. Kept
+// deliberately to single, well-covered topics rather than a comparison
+// ("quota share vs surplus") — the corpus is thin enough right now that a
+// side-by-side comparison risks inventing detail for whichever side has
+// less real source material (confirmed live: a quota-share/surplus
+// compare table fabricated surplus's definition by borrowing excess-of-
+// loss's).
 const EXAMPLE_QUESTIONS = [
-  'What can you help me with?',
-  'Summarize what you know about this topic.',
-  'What are the key details I should know?',
+  'What is excess of loss reinsurance?',
+  'How does the Lloyd\'s market work?',
+  'What does the IRDAI reinsurance department do?',
 ];
 
 function buildEmptyState() {
@@ -364,8 +372,8 @@ function buildEmptyState() {
     <div class="empty-state__icon" aria-hidden="true">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 6.5V11C3 16.2 6.8 20.9 12 22C17.2 20.9 21 16.2 21 11V6.5L12 2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 12.2L10.8 14.5L15.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
-    <h1>Hi, I'm your assistant 👋</h1>
-    <p>Ask me anything about the knowledge base — I'm here to help.</p>
+    <h1>Hi, I'm your Reinsurance Assistant 👋</h1>
+    <p>Ask me about reinsurance treaties, regulation, or market structure — I'm here to help.</p>
     <div class="example-grid"></div>
   `;
   const grid = wrap.querySelector('.example-grid');
