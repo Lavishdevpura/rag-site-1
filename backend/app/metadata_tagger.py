@@ -72,7 +72,21 @@ _POLICY_PATTERNS: dict[str, list[str]] = {
                            "quota share", "surplus treaty", "excess of loss",
                            "catastrophe excess of loss", "cat xl",
                            "stop loss reinsurance", "reinsurance layer",
-                           "cession", "ceding commission"],
+                           # Confirmed live (2026-08-19): a bare "cession"
+                           # here is a plain substring match (_count_hits
+                           # has no word boundaries) that fires on every
+                           # occurrence of "cession"/"cessions" anywhere in
+                           # a document, including inside "regulatory"'s own
+                           # "obligatory cession" phrase — so a genuine
+                           # IRDAI Gazette Notification about obligatory
+                           # cession out-scored "regulatory" on raw hit
+                           # count and got tagged "fundamentals" instead,
+                           # even though tag_document() had already
+                           # correctly classified the same document's
+                           # doc_type as "regulatory". See _POLICY_TYPE_HINTS'
+                           # matching fix for the fuller writeup — removed
+                           # here for the same reason.
+                           "ceding commission"],
     "regulatory":         ["irdai", "reinsurance regulations", "master circular",
                            "gazette notification", "regulatory sandbox",
                            "irdai circular", "obligatory cession",
@@ -707,7 +721,7 @@ _POLICY_TYPE_HINTS: dict[str, dict] = {
             "treaty reinsurance", "facultative reinsurance", "proportional reinsurance",
             "non-proportional reinsurance", "quota share", "surplus treaty",
             "excess of loss", "XOL", "catastrophe excess of loss", "cat xl",
-            "stop loss reinsurance", "retention", "reinsurance layer", "cession",
+            "stop loss reinsurance", "retention", "reinsurance layer",
             "ceding commission", "reinsurance premium",
         ],
         "regex": [
@@ -716,7 +730,20 @@ _POLICY_TYPE_HINTS: dict[str, dict] = {
             r"\bquota share\b", r"\bsurplus treaty\b", r"\bexcess of loss\b",
             r"\bXOL\b", r"\bcat(?:astrophe)?\s+(?:excess of loss|xl)\b",
             r"\bstop loss reinsurance\b", r"\breinsurance layer\b",
-            r"\bcession(?:s)?\b", r"\bceding commission\b",
+            # Confirmed live (2026-08-19): a bare \bcession(?:s)?\b here
+            # out-scored "regulatory"'s own specific \bobligatory cession\b
+            # on raw hit-count for an IRDAI Gazette Notification that uses
+            # the word "cession" repeatedly (percentage cession, obligatory
+            # cession, cession made...) — the notification is clearly
+            # regulatory in origin/nature, but the generic word "cession"
+            # alone isn't a fundamentals-specific signal; it appears just as
+            # naturally in regulatory text ABOUT cession requirements as in
+            # fundamentals text explaining the cession MECHANISM. Removed
+            # rather than narrowed, since "ceding commission" below already
+            # covers the one cession-related phrase that's genuinely
+            # fundamentals-specific (a treaty-mechanics term, not something
+            # a regulation would typically use on its own).
+            r"\bceding commission\b",
         ],
     },
     "regulatory": {
