@@ -363,6 +363,7 @@ const EXAMPLE_QUESTIONS = [
   'What is excess of loss reinsurance?',
   'How does the Lloyd\'s market work?',
   'What does the IRDAI reinsurance department do?',
+  'What underwriting requirements do members have to comply with at Lloyd\'s?',
 ];
 
 function buildEmptyState() {
